@@ -1,0 +1,28 @@
+name: Java CI with Gradle
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: macos-latest  # M1/M2에도 적합
+
+    steps:
+    - uses: actions/checkout@v4                      # 최신 stable 버전
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4                   # v4 권장
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v4.0.0      # 태그로 지정
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Build with Gradle Wrapper
+      run: ./gradlew build
