@@ -7,6 +7,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -15,8 +17,9 @@ import java.io.InputStreamReader;
 import java.util.Collections;
 import java.util.List;
 
-@Controller
+@RestController
 public class VideoController {
+    private final ObjectMapper objectMapper =  new ObjectMapper();
     @GetMapping("/api/video/lower")
     public ResponseEntity<String> lower() {
         try {
@@ -36,37 +39,49 @@ public class VideoController {
         }
     }
 
-    @GetMapping("/api/youtube/list")
-    public ResponseEntity<List<VideoResponse>> getYoutubeEmbedData() {
+    @PostMapping("/crawl")
+    public ResponseEntity<String> crawlYoutubeData() {
         try {
-            // 1. Python 실행 (scripts/Youtube_fetcher.py 실행)
-            ProcessBuilder pb = new ProcessBuilder("python3", "scripts/Youtube_fetcher.py", "scripts/video_lowercased.json");
-            pb.directory(new File(System.getProperty("user.dir"))); // 프로젝트 루트 기준
+            ProcessBuilder pb = new ProcessBuilder("python3", "scripts/Youtube_fetcher.py");
             pb.redirectErrorStream(true);
             Process process = pb.start();
-            process.waitFor(); // python 끝날 때까지 기다리기
 
-            // 2. updated_movies.json 읽기
-            File updatedFile = new File("scripts/updated_movies.json");
-            if (!updatedFile.exists()) {
-                return new ResponseEntity<>(Collections.emptyList(), HttpStatus.OK);
+            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            String line;
+            StringBuilder output = new StringBuilder();
+            while ((line = reader.readLine()) != null) {
+                output.append(line);
             }
 
-            ObjectMapper objectMapper = new ObjectMapper();
-            List<VideoResponse> videos = objectMapper.readValue(updatedFile, new TypeReference<List<VideoResponse>>() {});
+            int exitCode = process.waitFor(); // 크롤링 끝날 때까지 기다리기
 
-            return new ResponseEntity<>(videos, HttpStatus.OK);
+            if (exitCode == 0) {
+                return ResponseEntity.ok("Crawling completed successfully.");
+            } else {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body("Crawling failed. Output: " + output.toString());
+            }
 
-        } catch (Exception e) {
-            VideoResponse errorVideo = new VideoResponse();
-            errorVideo.setId("-1");
-            errorVideo.setTitle("Error");
-            errorVideo.setVideoId("");
-            errorVideo.setThumbnail("");
-            errorVideo.setDescription(e.getMessage());
+        } catch (IOException | InterruptedException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error: " + e.getMessage());
+        }
+    }
 
-            List<VideoResponse> errorList = Collections.singletonList(errorVideo);
-            return ResponseEntity.ok(errorList);
+    // 2. 크롤링된 데이터 가져오는 엔드포인트 (프론트엔드용)
+    @GetMapping("/api/videos")
+    public ResponseEntity<List<VideoResponse>> getYoutubeVideos() {
+        try {
+            File jsonFile = new File("scripts/updated_movies.json");
+            List<VideoResponse> videos = objectMapper.readValue(
+                    jsonFile,
+                    new TypeReference<List<VideoResponse>>() {}
+            );
+            return ResponseEntity.ok(videos);
+
+        } catch (IOException e) {
+            // 만약 파일을 못 읽으면 500 에러
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 

@@ -49,3 +49,4 @@ def batch_crawl_movies():
 
 # 실행
 batch_crawl_movies()
+print("batch_crawl_movies completed.")
