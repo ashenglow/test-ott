@@ -29,7 +29,7 @@ def parse_duration(duration_str):
     return seconds
 
 # 우선 키워드 (영상 title 기준)
-priority_keywords = ['official', 'trailer', '예고편', '티저', '티져', '예고']
+priority_keywords = ['official', 'trailer','공식 예고', '공식 티저', '공식 예고편', '예고편', 'teaser', '티져', '예고']
 
 def batch_crawl_movies():
     with open(json_path, 'r', encoding='utf-8') as f:
